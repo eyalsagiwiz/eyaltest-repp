@@ -1,0 +1,55 @@
+name: "Wiz CLI IaC Scan on Pull Request" # The name of the workflow displayed in the GitHub UI.
+
+on:
+  pull_request: # This workflow will be triggered on pull_request events.
+    branches:
+      - main # Specifies that the workflow should run for pull requests targeting the 'main' branch.
+            # You can change this to other relevant branches (e.g., 'master', 'develop').
+    paths: # This filter ensures the workflow only runs when specific IaC-related files are changed.
+      - '**.tf' # Scans Terraform files.
+      - '**.json' # Scans JSON files (e.g., CloudFormation templates, Azure ARM templates).
+      - '**.yaml' # Scans YAML files (e.g., Kubernetes manifests, CloudFormation templates).
+      - '**.yml' # Scans YML files.
+      - '**.bicep' # Scans Bicep files.
+      - '**.arm' # Scans ARM templates.
+      - '**/Dockerfile' # Scans Dockerfiles.
+      - '**/Containerfile' # Scans Containerfiles.
+      - '**/kustomization.yaml' # Scans Kustomize configuration files.
+      - '**/kustomization.yml' # Scans Kustomize configuration files.
+      - '**/helm/**' # Scans files within Helm chart directories.
+      - '**/ansible/**' # Scans files within Ansible directories.
+      - '**/cloudformation/**' # Scans files within CloudFormation directories.
+      - '**/azure/**' # Scans files within Azure-related directories.
+      - '**/gcp/**' # Scans files within GCP-related directories.
+      - '**/aws/**' # Scans files within AWS-related directories.
+      - '**/terraform/**' # Scans files within Terraform directories.
+
+jobs:
+  wiz-cli-iac-scan: # A unique ID for this job.
+    name: "Wiz CLI IaC Scan" # The name of the job displayed in the GitHub UI.
+    runs-on: ubuntu-latest # Specifies that the job will run on the latest Ubuntu GitHub-hosted runner.
+    env: # Environment variables available to all steps in this job.
+      SCAN_PATH: "." # The path to scan. "." refers to the root of the repository.
+      POLICY: "Default IaC policy" # The name of the Wiz CLI policy to use for scanning.
+                                   # Ensure this policy exists in your Wiz environment.
+    defaults: # Default settings for all 'run' steps in this job.
+      run:
+        shell: bash # Sets Bash as the default shell for all 'run' commands in this job.
+    steps: # A sequence of tasks to be executed in this job.
+      - name: Check out repository # Step 1: Checks out your repository code to the runner.
+        uses: actions/checkout@v3 # Using actions/checkout@v3 for better compatibility and features.
+
+      - name: Download Wiz CLI # Step 2: Downloads the Wiz CLI binary.
+        run: |
+          curl -o wizcli https://downloads.wiz.io/wizcli/latest/wizcli-linux-amd64 # Downloads the Linux AMD64 binary
+          chmod +x wizcli # Makes the downloaded binary executable.
+
+      - name: Authenticate to Wiz # Step 3: Authenticates the Wiz CLI with the Wiz API.
+        run: |
+          ./wizcli auth -id "${{ secrets.WIZ_CLIENT_ID }}" -secret "${{ secrets.WIZ_CLIENT_SECRET }}" # Uses stored GitHub secrets for authentication.
+        env: # Environment variables specific to this step.
+          WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }} # Accesses the WIZ_CLIENT_ID secret.
+          WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }} # Accesses the WIZ_CLIENT_SECRET secret.
+
+      - name: Run Wiz CLI IaC scan # Step 4: Executes the Wiz CLI IaC scan.
+        run: ./wizcli iac scan -path "$SCAN_PATH" --policy "$POLICY" # Runs the IaC scan command using the defined path and policy.
